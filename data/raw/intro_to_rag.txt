@@ -1,0 +1,61 @@
+Introduction to Retrieval-Augmented Generation
+
+Retrieval-Augmented Generation (RAG) is an architectural pattern for large language model (LLM) applications that improves factual accuracy by grounding the model's outputs in retrieved documents. Rather than relying purely on the parametric knowledge baked into model weights during pre-training, RAG dynamically fetches relevant context at inference time.
+
+The core intuition is straightforward: a language model's knowledge is frozen at training time, but real-world information changes continuously. By separating what a model knows from what it can look up, RAG enables systems that are simultaneously capable of fluid natural language generation and up-to-date factual reasoning.
+
+How the Pipeline Works
+
+A standard RAG pipeline consists of two phases: an offline indexing phase and an online serving phase.
+
+During indexing, a corpus of documents is split into smaller chunks, typically of a few hundred tokens each. Each chunk is passed through an embedding model that maps it to a dense vector in a high-dimensional semantic space. These vectors are stored in a vector database alongside the original text of each chunk.
+
+During serving, when a user submits a query, the same embedding model encodes the query into a vector. The vector database performs a nearest-neighbour search to find the chunks whose embeddings are closest to the query vector. These retrieved chunks are then concatenated into a prompt alongside the user's question and passed to the generative model, which produces an answer grounded in the retrieved context.
+
+Dense vs Sparse Retrieval
+
+There are two dominant retrieval paradigms: dense and sparse.
+
+Dense retrieval uses neural embeddings — typically from bi-encoder transformer models — to represent both queries and documents in a continuous vector space. Similarity is measured by cosine similarity or inner product. Dense retrieval excels at capturing semantic equivalences: "automobile" and "car" will have close representations even though they share no tokens.
+
+Sparse retrieval, best represented by BM25 (Best Match 25), works over inverted indexes and scores documents based on term frequency and inverse document frequency. BM25 has decades of IR research behind it and remains competitive on keyword-heavy queries. It handles exact-match requirements that dense models sometimes miss.
+
+Hybrid retrieval combines both signals. A common approach is Reciprocal Rank Fusion (RRF), which merges two ranked lists by assigning each document a score based on its position in each list: score = 1/(k + rank), summed across rankers. RRF is robust and requires no learned fusion weights.
+
+Reranking
+
+First-stage retrieval is optimised for recall — fetching a large candidate set efficiently. A reranker then applies a more expensive but more accurate relevance model to select the final top-k passages.
+
+Cross-encoders are the most common reranker architecture. Unlike bi-encoders (which embed query and document independently), a cross-encoder receives the concatenated (query, passage) pair and attends across both. This joint attention allows the model to capture fine-grained relevance signals that bi-encoders miss, at the cost of higher latency. For a 20-candidate pool, the additional latency is typically acceptable.
+
+Chunking Strategy
+
+How documents are split significantly affects retrieval quality. A chunk that is too short loses context; one that is too long dilutes the relevant signal and may exceed the embedding model's context window.
+
+Recursive chunking with sentence-awareness is a common strategy: the text is split preferentially at paragraph boundaries, then sentence boundaries, then words, only falling back to character-level splits as a last resort. Overlapping adjacent chunks by 10–15% of the chunk size reduces the risk of cutting through a relevant passage.
+
+Challenges and Limitations
+
+RAG is not a silver bullet. Common failure modes include:
+
+Chunking errors: relevant information spans a chunk boundary and is split across two chunks, neither of which contains enough context to answer the query.
+
+Retrieval failures: the relevant passage exists in the corpus but is not retrieved in the top-k results. This is especially common for queries that use different vocabulary from the indexed documents.
+
+Context overflow: retrieved chunks together exceed the LLM's context window, forcing truncation of potentially relevant material.
+
+Faithfulness failures: the LLM generates an answer that partially contradicts or goes beyond the retrieved context. Prompt engineering and fine-tuning can mitigate this, but it remains an active research area.
+
+Evaluating RAG Systems
+
+Evaluation typically decomposes into retrieval quality and generation quality.
+
+Retrieval quality is measured by standard IR metrics: Recall@K (did the correct passage appear in the top-K results?), Mean Reciprocal Rank (MRR), and Normalised Discounted Cumulative Gain (NDCG).
+
+Generation quality metrics include ROUGE and BLEU for surface-level comparison to reference answers, and more recently, LLM-as-judge approaches where a capable model evaluates faithfulness (is the answer grounded in the retrieved context?) and answer relevance (does the answer address the question?).
+
+The RAGAS framework is a widely used evaluation suite that operationalises these dimensions into automated metrics.
+
+Advanced Techniques
+
+Several techniques extend the basic RAG architecture. HyDE (Hypothetical Document Embeddings) generates a hypothetical answer to the query and uses its embedding to retrieve documents, which can improve recall for complex queries. Multi-hop RAG performs iterative retrieval, using the output of one retrieval step to inform the next. Contextual compression post-processes retrieved chunks to extract the most relevant sentences before passing them to the LLM.
