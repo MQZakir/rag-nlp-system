@@ -66,7 +66,7 @@ Embedding Model (HuggingFace sentence-transformers)
 ### 1. Clone & configure
 
 ```bash
-git clone https://github.com/yourhandle/rag-nlp-system.git
+git clone https://github.com/mqzakir/rag-nlp-system.git
 cd rag-nlp-system
 cp .env.example .env
 # Edit .env — set your LLM provider key if using OpenAI/Anthropic,
@@ -271,7 +271,3 @@ GitHub Actions runs on every push and pull request:
 4. Integration tests (spins up the API in-process via `httpx.AsyncClient`)
 
 ---
-
-## License
-
-MIT
